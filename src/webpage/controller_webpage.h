@@ -81,6 +81,10 @@ const char MAIN_PAGE[] PROGMEM = R"HTMLPAGE(
 			height: calc(50px + 0.390625vw);
 		}
 
+		.table-door-style {
+			height: calc(50px + 0.390625vw);
+		}
+
 		.table-data-style {
 			height: calc(50px + 0.390625vw);
 		}
@@ -147,8 +151,33 @@ const char MAIN_PAGE[] PROGMEM = R"HTMLPAGE(
 					<td class="table-switch-style noselect"><div class="table-data-text" id="light0" onclick="changeLightState(this)">OFF</div></td>
 				</tr>
 				<tr>
-					<td><div class="table-title-text">Comedor</div></td>
+					<td><div class="table-title-text">Cocina</div></td>
 					<td class="table-switch-style noselect"><div class="table-data-text" id="light1" onclick="changeLightState(this)">OFF</div></td>
+				</tr>
+				<tr>
+					<td><div class="table-title-text">Comedor</div></td>
+					<td class="table-switch-style noselect"><div class="table-data-text" id="light2" onclick="changeLightState(this)">OFF</div></td>
+				</tr>
+				<tr>
+					<td><div class="table-title-text">Cuarto</div></td>
+					<td class="table-switch-style noselect"><div class="table-data-text" id="light3" onclick="changeLightState(this)">OFF</div></td>
+				</tr>
+			</table>
+			<div class="section-title">Puertas</div>
+			<table class="table-margin table-borders table-text" style="width:calc(100% - 20px)">
+				<colgroup>
+					<col span="1" class="table-title-row">
+					<col span="1" class="table-title-row">
+				</colgroup>
+				<col span="2" style="background-color:rgb(0,0,0); color:#FFFFFF">
+				<col span="2" style="background-color:rgb(0,0,0); color:#FFFFFF">
+				<tr >
+					<td><div class="table-title-text">Principal</div></td>
+					<td class="table-door-style noselect"><div class="table-data-text" id="door0" onclick="changeDoorState(this)">CLOSED</div></td>
+				</tr>
+				<tr>
+					<td><div class="table-title-text">Cochera</div></td>
+					<td class="table-door-style noselect"><div class="table-data-text" id="door1" onclick="changeDoorState(this)">CLOSED</div></td>
 				</tr>
 			</table>
 			<div class="section-title">Persianas</div>
@@ -177,34 +206,22 @@ const char MAIN_PAGE[] PROGMEM = R"HTMLPAGE(
 						</div>
 					</td>
 				</tr>
-				<tr>
-					<td><div class="table-title-text">Comedor</div></td>
-					<td class="noselect">
-						<div class="table-range-style table-data-text">
-							<div class="table-range-align">
-								<label for="louver1">Apertura</label>
-								<input type="range"
-								class="range-input"
-								id="louver1"
-								onfocus="this.oldvalue = this.value;"
-								onchange="changeLouverState(this);this.oldvalue = this.value;"
-								min="0"
-								max="180">
-							</div>
-						</div>
-					</td>
-				</tr>
 			</table>
 		</main>
 	</body>
 	<script type="text/javascript">
     var tempTags = ["temp0"];
     var humTags = ["hum0"];
-    var lightTags = ["light0", "light1"];
-    var louverTags = ["louver0", "louver1"];
+    var lightTags = ["light0", "light1", "light2", "light3"];
+    var louverTags = ["louver0"];
+	var doorTags = ["door0", "door1"];
 	var switchColorVal = {
 		"OFF": "#780b00",
 		"ON": "green"
+	}
+	var doorColorVal = {
+		"CLOSED": "#780b00",
+		"OPENED": "green"
 	}
 	var xmlHttp = createXmlHttpObject();
     var interval = setInterval(process, 2500);
@@ -216,6 +233,14 @@ const char MAIN_PAGE[] PROGMEM = R"HTMLPAGE(
 			thisSwitch.style.background = switchColorVal[thisSwitch.outerText];
 		}
     }
+
+	function setDoorColors() {
+		const doors = document.querySelectorAll(".table-door-style");
+		for (const thisDoor of doors) {
+			thisDoor.style.color = "white";
+			thisDoor.style.background = doorColorVal[thisDoor.outerText];
+		}
+	}
 
     function process() {
 		xmlHttp = new XMLHttpRequest();
@@ -235,6 +260,7 @@ const char MAIN_PAGE[] PROGMEM = R"HTMLPAGE(
 		setTemperatures(xmlResponse);
 		setHumidities(xmlResponse);
 		setLightSwitches(xmlResponse);
+		setDoors(xmlResponse);
 		setLouvers(xmlResponse);
     }
 
@@ -250,7 +276,7 @@ const char MAIN_PAGE[] PROGMEM = R"HTMLPAGE(
 		for (const thisHumTag of humTags) {
 			var humElement = document.getElementById(thisHumTag);
 			var xmlDoc = xmlResponse.getElementsByTagName(thisHumTag);
-			humElement.innerHTML = xmlDoc[0].firstChild.nodeValue + " %";
+			humElement.innerHTML = xmlDoc[0].firstChild.nodeValue + "%";
 		}
     }
 
@@ -271,6 +297,16 @@ const char MAIN_PAGE[] PROGMEM = R"HTMLPAGE(
 			louverElement.value = xmlDoc[0].firstChild.nodeValue;
 		}
     }
+
+	function setDoors(xmlResponse) {
+		for (const thisDoorTag of doorTags) {
+			var doorElement = document.getElementById(thisDoorTag);
+			var xmlDoc = xmlResponse.getElementsByTagName(thisDoorTag);
+			doorElement.innerHTML = xmlDoc[0].firstChild.nodeValue;
+			doorElement.style.background = doorColorVal[doorElement.outerText];
+		}
+		setDoorColors();
+	}
 
 	function createXmlHttpObject() {
 		if (window.XMLHttpRequest) {
@@ -298,6 +334,27 @@ const char MAIN_PAGE[] PROGMEM = R"HTMLPAGE(
 		xhttp.open("PUT", "updateLightState?" +
 			"lightId=" + element.id +
 			"&lightState=" + newValue, true);
+		xhttp.send();
+	}
+
+	function changeDoorState(element) {
+		var xhttp = new XMLHttpRequest();
+		var newValue = null;
+		if (element.innerHTML == "OPENED") {
+			newValue = "CLOSED"
+		} else {
+			newValue = "OPENED"
+		}
+		xhttp.onreadystatechange = function() {
+			if (this.readyState == 4 && this.status == 200) {
+				element.innerHTML = newValue;
+				element.style.background = doorColorVal[element.innerHTML];
+				element.parentNode.style.background = doorColorVal[element.innerHTML];
+			}
+		}
+		xhttp.open("PUT", "updateDoorState?" +
+			"doorId=" + element.id +
+			"&doorState=" + newValue, true);
 		xhttp.send();
 	}
 

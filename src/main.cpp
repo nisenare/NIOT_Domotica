@@ -49,11 +49,11 @@ void initShowTempAndHumidity()
 
 void initTempAndHumiditySensor()
 {
+  shtc3.begin();
   TempSensorTimer = timerBegin(TEMP_SENS_TIMERNUM, TEMP_SENS_PREESCALER, true);
   timerAttachInterrupt(TempSensorTimer, &onTempHumiditySensorsTimer, true);
   timerAlarmWrite(TempSensorTimer, TEMP_SENS_MICROSECS, true);
   timerAlarmEnable(TempSensorTimer);
-  dht.begin();
 }
 
 void initServo()
@@ -104,7 +104,6 @@ void initLights()
 
 void setup()
 {
-  Serial.begin(115200);
   initLights();
   initI2CLCD();
   initTempAndHumiditySensor();
@@ -120,17 +119,18 @@ void updateTemperature()
 {
   if (changeTemp)
   {
-    int newTemp = (int) dht.readTemperature(false);
-    if (newTemp != temperature)
+    shtc3.getEvent(&humidity, &temperature);
+    int newTemp = (int) temperature.temperature;
+    if (newTemp != tempInteger)
     {
       tempHasChanged = true;
-      temperature = newTemp;
+      tempInteger = newTemp;
     }
-    if (temperature < 0)
+    if (tempInteger < 0)
     {
       tempBelowZero = true;
     }
-    if (temperature >= 100)
+    if (tempInteger >= 100)
     {
       tempHigherThan100 = true;
     }
@@ -155,7 +155,7 @@ inline void updateTemperatureLCD()
       lcd.print(" ");
       lcd.setCursor(2, 0);
     }
-    lcd.print(temperature);
+    lcd.print(tempInteger);
     tempHasChanged = false;
   }
 }
@@ -164,11 +164,12 @@ void updateHumidity()
 {
   if (changeHum)
   {
-    int newHumidity = (int) dht.readHumidity();
-    if (newHumidity != humidity)
+    shtc3.getEvent(&humidity, &temperature);
+    int newHum = (int) humidity.relative_humidity;
+    if (newHum != humidityInteger)
     {
-      humidity = newHumidity;
-      if (humidity == 100)
+      humidityInteger = newHum;
+      if (humidityInteger == 100)
       {
         humidityEqualsHundred = true;
       }
@@ -187,7 +188,7 @@ inline void updateHumidityLCD() {
       lcd.print(" ");
     }
     lcd.setCursor(2, 1);
-    lcd.printf("%d%", humidity);
+    lcd.printf("%d%", humidityInteger);
     humidityHasChanged = false;
   }
 }
@@ -219,11 +220,11 @@ inline void changeDoorState(int doorId, boolean open)
 {
   if (open)
   {
-    while (doorAngles[doorId] < 90)
+    while (doorAngles[doorId] < DOOR_ANGLE_MAX)
     {
       doorAngles[doorId]++;
       int value = map(doorAngles[doorId], 0, 180, DOOR_MIN, DOOR_MAX);
-      ledcWrite(doorAngles[doorId], value);
+      ledcWrite(doorChannels[doorId], value);
     }
   }
   else
@@ -232,7 +233,7 @@ inline void changeDoorState(int doorId, boolean open)
     {
       doorAngles[doorId]--;
       int value = map(doorAngles[doorId], 0, 180, DOOR_MIN, DOOR_MAX);
-      ledcWrite(doorAngles[doorId], value);
+      ledcWrite(doorChannels[doorId], value);
     }
   }
   doorStates[doorId] = open;
@@ -265,12 +266,13 @@ void onPageRequest()
   server.send(200, "text/html", MAIN_PAGE);
 }
 
+// si, estoy usando xml y no json, algun problema? >:(((((
 void onSendXML()
 {
   strcpy(xmlBuffer, "<?xml version = '1.0'?>\n<Data>\n");
-  sprintf(buff, "<temp0>%d</temp0>\n", temperature);
+  sprintf(buff, "<temp0>%d</temp0>\n", tempInteger);
   strcat(xmlBuffer, buff);
-  sprintf(buff, "<hum0>%d</hum0>\n", humidity);
+  sprintf(buff, "<hum0>%d</hum0>\n", humidityInteger);
   strcat(xmlBuffer, buff);
 
   int lightsQuant = sizeof(lightPins) / sizeof(uint8_t);
@@ -284,6 +286,13 @@ void onSendXML()
   for (int i = 0; i < servosQuant; i++)
   {
     sprintf(buff, "<louver%d>%d</louver%d>\n", i, servoAngles[i], i);
+    strcat(xmlBuffer, buff);
+  }
+
+  int doorsQuant = sizeof(doorPins) / sizeof(uint8_t);
+  for (int i = 0; i < doorsQuant; i++)
+  {
+    sprintf(buff, "<door%d>%s</door%d>\n", i, doorStates[i]? "OPENED" : "CLOSED", i);
     strcat(xmlBuffer, buff);
   }
   strcat(xmlBuffer, "</Data>\n");
@@ -315,7 +324,7 @@ void onDoorStateChange()
   String doorId = server.arg("doorId");
   String doorState = server.arg("doorState");
   int doorIdNum = doorId[doorId.length() - 1] - '0';
-  boolean doorStateBool = doorState.equals("OPEN")? true : false;
+  boolean doorStateBool = doorState.equals("OPENED")? true : false;
   changeDoorState(doorIdNum, doorStateBool);
   server.send(200, "text/plain", "Done");
 }

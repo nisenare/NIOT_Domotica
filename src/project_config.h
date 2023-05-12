@@ -5,7 +5,8 @@
   #include <WiFi.h>
   #include <WebServer.h>
   #include <EEPROM.h>
-  #include <DHT.h>
+  #include <SPI.h>
+  #include <Adafruit_SHTC3.h>
 
   #ifndef WIFI_CONFIG
   #define WIFI_CONFIG
@@ -38,19 +39,19 @@
 
   #ifndef TEMP_SENS_CONFIG
   #define TEMP_SENS_CONFIG
-    #define TEMP_SENS_PIN 4
-    #define TEMP_SENS_TYPE DHT11
+    #define TEMP_SENS_ADDRESS 0x70
     #define TEMP_SENS_TIMERNUM 0
     #define TEMP_SENS_PREESCALER 80
     #define TEMP_SENS_MICROSECS 10000000
-    DHT dht(TEMP_SENS_PIN, TEMP_SENS_TYPE);
+    Adafruit_SHTC3 shtc3 = Adafruit_SHTC3();
+    sensors_event_t temperature;
+    int tempInteger = 0;
     hw_timer_t *TempSensorTimer = NULL;
     volatile boolean tempHasChanged = false;
     volatile boolean tempHumTimerPaused = false;
     volatile boolean tempHigherThan100 = false;
     volatile boolean tempBelowZero = false;
     volatile boolean changeTemp = false;
-    int temperature = 0;
     byte termometer_char[] = {
       0b00100,
       0b01010,
@@ -80,7 +81,8 @@
     volatile boolean humidityHasChanged = false;
     volatile boolean humidityEqualsHundred = false;
     volatile boolean changeHum = false;
-    int humidity = 0;
+    sensors_event_t humidity;
+    int humidityInteger = 0;
     byte gota_char[] = {
       0b00100,
       0b00100,
@@ -108,16 +110,14 @@
   #ifndef SERVO_CONFIG
   #define SERVO_CONFIG
     #define SERVO0_PIN 18
-    #define SERVO0_CHANNEL 2
-    #define SERVO1_PIN 5
-    #define SERVO1_CHANNEL 3
+    #define SERVO0_CHANNEL 4
     #define SERVO_FREQ 50
     #define SERVO_DUTY_CYCLE 12
     #define SERVO_MIN 100
     #define SERVO_MAX 511
-    uint8_t servoPins[] = {SERVO0_PIN, SERVO1_PIN};
-    uint8_t servoChannels[] = {SERVO0_CHANNEL, SERVO1_CHANNEL};
-    uint8_t servoAngles[] = {0, 0};
+    uint8_t servoPins[] = {SERVO0_PIN};
+    uint8_t servoChannels[] = {SERVO0_CHANNEL};
+    uint8_t servoAngles[] = {0};
   #endif
 
   #ifndef DOOR_CONFIG
@@ -126,12 +126,15 @@
     #define DOOR_DUTY_CYCLE 12
     #define DOOR_MIN 100
     #define DOOR_MAX 511
-    #define DOOR0_PIN 0
-    #define DOOR0_CHANNEL 4
-    uint8_t doorPins[] = {DOOR0_PIN};
-    uint8_t doorChannels[] = {DOOR0_CHANNEL};
-    uint8_t doorAngles[] = {0};
-    boolean doorStates[] = {false};
+    #define DOOR_ANGLE_MAX 100
+    #define DOOR0_PIN 5
+    #define DOOR0_CHANNEL 5
+    #define DOOR1_PIN 17
+    #define DOOR1_CHANNEL 6
+    uint8_t doorPins[] = {DOOR0_PIN, DOOR1_PIN};
+    uint8_t doorChannels[] = {DOOR0_CHANNEL, DOOR1_CHANNEL};
+    uint8_t doorAngles[] = {0, 0};
+    boolean doorStates[] = {false, false};
   #endif
 
   #ifndef EEPROM_CONFIG
@@ -146,7 +149,9 @@
   #define LIGHT_CONFIG
     #define LIGHT_0_PIN 32
     #define LIGHT_1_PIN 33
-    uint8_t lightPins[] = {LIGHT_0_PIN, LIGHT_1_PIN};
-    boolean lightStates[] = {false, false};
+    #define LIGHT_2_PIN 25
+    #define LIGHT_3_PIN 26
+    uint8_t lightPins[] = {LIGHT_0_PIN, LIGHT_1_PIN, LIGHT_2_PIN, LIGHT_3_PIN};
+    boolean lightStates[] = {false, false, false, false};
   #endif
 #endif
